@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>First Movement Test</title>
+    <style>
+    	* { padding: 0; margin: 0; }
+    	canvas { background: #eee; display: block; margin: 0 auto; }
+    </style>
+</head>
+
+<body>
+
+<canvas id="myCanvas" width="1090" height="350"></canvas>
+
+<script>// JavaScript code goes here
+	
+	var canvas = document.getElementById("myCanvas");
+	var ctx = canvas.getContext("2d");
+	
+	function test() {
+	//This function can be used to test where the mistake in the code might be (note, because the game function clears the canvas, as long as the game function is working, the test should be put into the game function)
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("TESTING", canvas.width/10, canvas.height/2); 
+	}
+	
+	var platformWidth = canvas.width
+	var platformHeight = 50
+	
+	var ballRadius = 20
+	var x = ballRadius
+	var y = canvas.height-platformHeight-ballRadius
+	
+	var rightPressed = false;
+	var leftPressed = false;
+	var spacePressed = false;
+	
+	var momentumRightSwitch = false;
+	var momentumLeftSwitch = false;
+	
+	var jumpCounter = jumpAllowance; //the jumpCounter will count down from whatever jump allowance is set, and stop allowing the ball to get higher when it reaches zero
+	var jumpAllowance = 25; 
+	var jumpStop = false;
+	//jumpStop is designed to stop the ball from jumping again when it's in mid-air - it gets activated under one of two conditions:
+	//(1) when the ball reaches the top of its arc (i.e. the jumpCounter has reached zero; or
+	//(2) when the player takes their hand off the space bar
+	//When it's activated the ball starts falling
+	//It becomes deactivated at the next moment when the ball is on the platform and the space bar is pressed again
+	
+	document.addEventListener("keydown", keyDownHandler, false);
+	document.addEventListener("keyup", keyUpHandler, false);	
+	
+	function keyDownHandler(e) {//this function takes the event of a key going down (labelled 'e') as its input and sets the variable rightPressed to true
+		if(e.keyCode == 39) {//39 is the key code for the right arrow key
+			rightPressed = true;
+			momentumRightSwitch = false;
+			momentumLeftSwitch = false;
+		}
+		else if(e.keyCode == 37) {//37 is the key code for the left arrow key
+			leftPressed = true;
+			momentumRightSwitch = false;
+			momentumLeftSwitch = false;
+		}
+		else if(e.keyCode == 32) {//32 is the key code for the space bar
+			spacePressed = true;
+		}
+	}
+
+	function keyUpHandler(e) {//this function takes the event of a key going up (labelled 'e') as its input and sets the variable rightPressed to false
+		if(e.keyCode == 39) {
+			rightPressed = false;
+			momentumRightSwitch = true;
+			momentumLeftSwitch = false;
+		}
+		else if(e.keyCode == 37) {
+			leftPressed = false;
+			momentumLeftSwitch = true;
+			momentumRightSwitch = false;
+		}
+		else if(e.keyCode == 32) {//32 is the key code for the space bar
+			spacePressed = false;
+			jumpStop = true; //i.e. when you take your hand off the spacebar, you can't jump again until jumpStop becomes false again, which happens when the ball gets back to the platform
+		}
+	}
+	
+	function drawPlatform() {
+		//This function draws the platform
+		ctx.beginPath();
+		ctx.rect(0, canvas.height-platformHeight, platformWidth, platformHeight);
+		ctx.fillStyle = "BLACK"
+		ctx.fill();
+		ctx.closePath();
+	}
+	
+	function drawBall() {
+    // this function draws the ball
+		ctx.beginPath();
+		ctx.arc(x, y, ballRadius, 0, Math.PI*2);//arc(x-coordinate of centre, y-coordinate of centre, radius, angle start, angle stop)
+		ctx.fillStyle = "BLUE"
+		ctx.fill();
+		ctx.closePath();
+	}
+	
+	function game() {
+	ctx.clearRect(0, 0, canvas.width, canvas.height); //clears the canvas of everything on it - clearrect(top-left-corner-coordinates, width, height)
+	drawPlatform();
+	drawBall();
+	test();
+		if(rightPressed && x < canvas.width-ballRadius) {
+			x += 15;
+		}
+		if (leftPressed && x > ballRadius) {
+			x -= 15;
+		}
+		
+		if (spacePressed) {
+			if (y >= canvas.height-platformHeight-ballRadius) {
+				jumpStop = false;
+				jumpCounter = jumpAllowance;
+				y -= 10;
+			}
+			//if the ball is on the ground while space is pressed, jumpStop is deactivated, the jumpCounter is reset and the ball starts jumping
+			
+			if (jumpCounter > 0 && jumpStop == false) {
+				y -= 10;
+				jumpCounter--;
+			}
+			//the jumpCounter continually counts down while the ball is moving up (provided jumpStop hasn't already been activated by the spacebar being unpressed)
+			
+			if (jumpCounter == 0){
+				jumpStop = true;
+			}
+			//when the jumpCounter reaches zero, jumpStop is activated
+		}
+		
+		if (y < canvas.height-platformHeight-ballRadius && jumpStop == true) {
+			y += 10;
+			}
+		// if the ball is in the air and jumpStop is activated it will fall back towards the ground
+		
+		if (y < canvas.height-platformHeight-ballRadius) {
+			if (momentumRightSwitch && x < canvas.width-ballRadius){
+				x += 10;
+			}
+			if (momentumLeftSwitch && x > ballRadius){
+				x -= 10;
+			}
+		}
+		//if the right / left momentum switches are activated while the ball is in the air and jumpStop is activated, it will move to the right / left	
+		
+		if (y >= canvas.height-platformHeight-ballRadius){
+			momentumRightSwitch = false;
+			momentumLeftSwitch = false;
+		}
+		//when the ball is on the ground, the momentum switches are deactivated
+		
+		
+	requestAnimationFrame(game);
+	}
+	
+	game();
+	
+</script>
+
+</body>
+</html>

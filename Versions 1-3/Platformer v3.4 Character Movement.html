@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Character Movement</title>
+    <style>
+    	* { padding: 0; margin: 0; }
+    	canvas { background: #52D4EE; display: block; margin: 0 auto; }
+		img { display: none;}
+    </style>
+</head>
+
+<body>
+
+<canvas id="myCanvas" width="1090" height="500"></canvas>
+<img id="myStickman" src="Stickman.png" width="10px" alt="Stickman" />
+<img id="myBugbear" src="fuzzy.png" width="10px" alt="Bugbear" />
+<img id="myForest" src="Forest.jpg" width="10px" alt="Forest" />
+
+<script>// JavaScript code goes here
+	
+	var canvas = document.getElementById("myCanvas");
+	var ctx = canvas.getContext("2d");;
+	var ctx = canvas.getContext("2d");
+	var background = document.getElementById("myForest");
+	
+	var stickman = document.getElementById("myStickman");
+	var initialCharacterCounter = 2;
+	var characterCounter = initialCharacterCounter;
+	
+	function test() {// this function can be used to test which part of the code is going wrong
+	//This function can be used to test where the mistake in the code might be (note, because the game function clears the canvas, as long as the game function is working, the test should be put into the game function)
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("TESTING", canvas.width/10, canvas.height/2); 
+	}
+	
+	function measureHeight() {// this function can be used to measure how high the ball is going when it jumps 
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("3", canvas.width/2, canvas.height/4);
+		ctx.fillText("2", canvas.width/2, canvas.height/2);
+		ctx.fillText("1", canvas.width/2, 3*canvas.height/4);
+	}
+	
+	//platform variables
+	function pCreator(platformX, platformY, platformWidth, platformHeight, platformColour, solidWall, lift, xSpeed, ySpeed){
+		this.platformX = platformX;
+		this.platformY = platformY;
+		this.platformWidth = platformWidth;
+		this.platformHeight = platformHeight;
+		this.platformColour = platformColour;
+		this.solidWall = solidWall;
+		this.lift = lift;
+		this.xSpeed = xSpeed;
+		this.ySpeed = ySpeed;
+	}
+	
+	var groundHeight = 50
+	var ground = new pCreator(0,canvas.height-groundHeight,2*canvas.width/5,groundHeight,"BLACK",true,false,0,0)
+	var ground2 = {platformX : 3*canvas.width/5,  platformY : canvas.height-groundHeight, platformWidth : 6*canvas.width/5, platformHeight : groundHeight, platformColour : "BLACK",
+					solidWall : true, lift : false, xSpeed : 0, ySpeed : 0};
+	var ditch = {platformX : canvas.width/5,  platformY : canvas.height-groundHeight/3, platformWidth : 3*canvas.width/5, platformHeight : groundHeight/3, platformColour : "BLACK",
+					solidWall : false, lift : false, xSpeed : 0, ySpeed : 0};
+	var lift1 = {platformX : 2*canvas.width/3,  platformY : canvas.height/2, platformWidth : 150, platformHeight : 10, platformColour : "BLACK",	
+					solidWall : true, lift : true, counter : 75, initialCounter : 150, ySpeed : -1, xSpeed : 0};
+	var lift2 = {platformX : 6*canvas.width/7,  platformY : canvas.height - groundHeight - 70, platformWidth : 100, platformHeight : 10, platformColour : "BLACK",	
+					solidWall : true, lift : true, counter : 0, initialCounter : 350, ySpeed : 0.5, xSpeed : 2};
+	var lift3 = {platformX : canvas.width,  platformY : canvas.height/2, platformWidth : 150, platformHeight : 10, platformColour : "BLACK",	
+					solidWall : true, lift : true, counter : 0, initialCounter : 100, ySpeed : -1, xSpeed : 0};
+	var ledge = {platformX : canvas.width/7,  platformY : 4*canvas.height/6, platformWidth : 80, platformHeight : 10, platformColour : "BLACK",
+					solidWall : true, lift : false, xSpeed : 0, ySpeed : 0};
+	var conveyer = {platformX : 5*canvas.width/3,  platformY : canvas.height/3, platformWidth : canvas.width/3, platformHeight : 10, platformColour : "BLUE",
+					solidWall : true, lift : false, xSpeed : 6, ySpeed : 0};
+	var hover = {platformX : 8*canvas.width/6,  platformY : 2*canvas.height/3, platformWidth : canvas.width/3, platformHeight : 10, platformColour : "RED",
+					solidWall : true, lift : false, xSpeed : 0, ySpeed : -1};
+	
+	var platform = [ground, ground2, ditch, lift1, lift2, lift3, ledge, conveyer, hover];
+	
+	//screen scroll variables
+	var screenScrollSpeed = 6;// speed at which the screen can be made to scroll forwards
+	var screenReadjustmentSpeed = 5*screenScrollSpeed; //speed at which the screen readjusts itself when the screen scrolling buttons are unpressed
+	
+	//character variables
+	var characterWidth = 40;
+	var characterHeight = 40;
+	//ball variables
+	var ballRadius = characterWidth/2;//to make the ball work, set the characterHeight to be equal to the characterWidth
+	//both variables
+	var x = 0;
+	var y = canvas.height-ground.platformHeight-characterHeight;
+	
+	//background variables
+	var backgroundX = 0;
+	var backgroundY = 0;
+	
+	//horizontal movement variables
+	var maxdx = 9; //this is the maximum horizontal speed of the ball
+	var dx = 0; //this is the horizontal speed of the ball
+	var accelerationX = 0.48; //this is the rate at which the ball accelerates if you press the arrow keys
+	var decelerationX = 0.2; //this is the rate at which the ball decelerates if you unpress the arrow keys
+	
+	//vertical movement variables
+	var initialdy = -7.5; //this is the speed at which the ball initially jumps when it goes into the air
+	var dy = 0; //this is the vertical speed of the ball
+	var accelerationY = 0.48; //this is the rate at which the ball accelerates towards the ground if it's in the air
+	var jumpExtend = 0.2; //this affects the amount you can extend the ball's jump by if you press space for longer
+	var jumpStop = false; //this stops the ball from jumping while in mid-air
+	
+	//feel free to mess around with these controls for a smoother jump. I quite like:
+	//initialdy = -7.5, accelerationY = 0.48, jumpExtend = 0.2 - starter one, maybe a little too high?
+	//initialdy = -5, accelerationY = 0.5, jumpExtend = 0.35 - better space bar control but maybe less fluid
+	//initialdy = -1, accelerationY = 0.2, jumpExtend = 0.2 - dude, it's like floating :D
+	
+	//Collision detection variables
+	var platformSwitch = ground; //this is switched to whichever platform the ball is on, or switched off if the ball is in the air
+	var rightWall = false; //this turns on when the ball hits a right platform wall and stops it moving (not in use right now)
+	var leftWall = false; //this turns on when the ball hits a left platform wall and stops it moving (not in use right now)
+	var underPlatform = [];//this stores whichever solid platforms the ball is under
+	
+	//keypad variables
+	var rightPressed = false;
+	var leftPressed = false;
+	var spacePressed = false;
+	var paused = false;
+	var pauseLock = false; //the pauseLock is to ensure that if you continually hold down 'p', the screen remains paused
+	var aPressed = false;
+	var dPressed = false;
+	var wPressed = false;
+	var sPressed = false;
+	
+	document.addEventListener("keydown", keyDownHandler, false);
+	document.addEventListener("keyup", keyUpHandler, false);
+	document.addEventListener("click", mouseClickHandler, false);
+	
+	//keypad and mouse functions
+	function keyDownHandler(e) {//this function takes the event of a key going down (labelled 'e') as its input and changes the relevant variables
+		if(e.keyCode == 39) {//39 is the key code for the right arrow key
+			rightPressed = true;
+		}
+		else if(e.keyCode == 37) {//37 is the key code for the left arrow key
+			leftPressed = true;
+		}
+		else if(e.keyCode == 32) {//32 is the key code for the space bar
+			spacePressed = true;
+		}
+		else if (e.keyCode == 80) {//80 is the key code for the 'p' key
+			if (!paused){
+				paused = true;
+				pauseLock = true;
+			}
+			else if (paused && !pauseLock){
+				paused = false;
+			}
+		}
+		else if(e.keyCode == 65) {//65 is the key code for a
+			aPressed = true;
+		}
+		else if(e.keyCode == 68) {//68 is the key code for d
+			dPressed = true;
+		}
+		else if(e.keyCode == 87){//87 is the key code for w
+			wPressed = true;
+		}
+		else if(e.keyCode == 83){//83 is the keycode for s
+			sPressed = true;
+		}
+	}
+	
+	function keyUpHandler(e) {//this function takes the event of a key going up (labelled 'e') as its input and changes the relevant variables
+		if(e.keyCode == 39) {
+			rightPressed = false;
+		}
+		else if(e.keyCode == 37) {
+			leftPressed = false;
+		}
+		else if(e.keyCode == 32) {
+			spacePressed = false;
+			jumpStop = true;
+		}
+		else if(e.keyCode == 80){
+			pauseLock = false;
+		}
+		else if(e.keyCode == 65) {
+			aPressed = false;
+		}
+		else if(e.keyCode == 68) {
+			dPressed = false;
+		}
+		else if(e.keyCode == 87){
+			wPressed = false;
+		}
+		else if(e.keyCode == 83){
+			sPressed = false;
+		}
+	}
+	
+	function mouseClickHandler(e) {//this function takes the event of the mouse being clicked (labelled 'e') and [atm writes testing]
+		test();
+	}
+	
+	
+	//ease-of-notation functions (i.e. functions designed to make the longer functions easier to write)
+	function remove(array, element) {//removes an element from an array, as long as it's in there
+		var index = array.indexOf(element);
+		if (index !== -1) {
+			array.splice(index, 1);
+		}
+	}
+	
+	function addNew(array, element) {//adds an element to an array, as long as it's not already in there
+		var alreadyInThere = false;
+		for (k = 0; k<array.length; k++){
+//note the use of k here rather than i or j: never use this function as part of another function that has pre-defined k as something else!
+			var e = array[k];
+			if (element == e){
+				alreadyInThere = true;
+			}
+		}
+		if (!alreadyInThere){
+			array.push(element);
+		}
+	}
+	
+	function everythingElseMovesHorizontally(m){//makes everything except the ball / character move horizontally by m
+		for (j = 0; j<platform.length; j++){
+			var q = platform[j];
+			q.platformX += m;
+		}
+		backgroundX += m;
+	}
+
+	function everythingElseMovesVertically(m){//makes everything except the ball / character move vertically by m
+		for (j = 0; j<platform.length; j++){
+			var q = platform[j];
+			q.platformY += m;
+		}
+		backgroundY += m;
+	}
+	
+	
+	// drawing functions
+	function writePaused(){//this function writes 'paused'
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("PAUSED", canvas.width/2, canvas.height/2); 
+		ctx.font = "20px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("(to unpause, press p)", canvas.width/2, canvas.height/2+20); 
+	}
+	
+	function drawPlatform() {//this function draws the platforms
+		for (i = 0; i<platform.length; i++){
+			var p = platform[i];
+			ctx.beginPath();
+			ctx.rect(p.platformX, p.platformY, p.platformWidth, p.platformHeight);
+			ctx.fillStyle = p.platformColour;
+			ctx.fill();
+			ctx.closePath();
+		}
+	}
+	
+	function drawBall() {//this function draws the ball
+		ctx.beginPath();
+		ctx.arc(x+ballRadius, y+ballRadius, ballRadius, 0, Math.PI*2);
+		ctx.fillStyle = "RED"
+		ctx.fill();
+		ctx.closePath();
+	}
+	
+	function drawCharacter() {//this function draws the character
+		ctx.drawImage(stickman, x, y, characterWidth, characterHeight);
+	}
+
+	function drawBackground(){//this function draws the background (though ideally I want the background to change with the ball so will have to sort that soon)
+		ctx.drawImage(background,backgroundX,backgroundY, 2*canvas.width, 2*canvas.height);
+	}
+	
+	
+	//movement functions
+	function liftMove(){//this function makes the lifts move
+		for (i = 0; i<platform.length; i++){
+			var p = platform[i];
+			if (p.lift){
+				if(p.counter > 0){
+					p.platformY += p.ySpeed;
+					p.platformX += p.xSpeed;
+					p.counter --
+				}
+				else{
+					p.ySpeed = -p.ySpeed;
+					p.xSpeed = -p.xSpeed;
+					p.counter = p.initialCounter
+				}
+			}
+		}
+	}
+	
+	function wallBounce(){//this function makes the ball or character bounce off the left of the screen (at ground.platformX)
+		if (x <= ground.platformX){
+			dx = -dx;
+			if (dy > 0 && dx > 0 && y < canvas.height){//the y < canvas.height condition ensures it can't bounce back on to the screen if it falls below the screen
+				if( -dy  >= 10*accelerationY){
+					dy = -dy;
+				}
+				else{
+					dy = -10*accelerationY
+				}
+			}
+		}
+		//if the ball ever hits the edge of the screen it will bounce back at the same speed
+		if (x < ground.platformX){
+			x ++;
+		}
+		//failsafes: if the ball ever goes off the sides of the screen it will be nudged back on
+	}
+		
+	function horizontalMovement(){//this function controls the horizontal movement of the ball or character
+	
+		if (x >= canvas.width/2 - characterWidth/2 && x >= ground.platformX + canvas.width/2 - characterWidth/2){//if the ball is more than canvas.width away from ground.platformX, it will be centred and the screen will move around it...
+			if(rightPressed && leftWall == false){// if the right arrow is pressed it will accelerate to a maximum velocity of maxdx
+				if (dx + accelerationX <= maxdx){	
+					dx += accelerationX;
+				}
+				everythingElseMovesHorizontally(-dx);
+			}
+				
+			else if(leftPressed && rightWall == false){// if the left arrow is pressed it will decelerate to a minimum velocity of -maxdx
+				if (dx + accelerationX >= -maxdx){
+					dx -= accelerationX;
+				}
+				everythingElseMovesHorizontally(-dx);
+			}
+				
+			else if (!rightPressed && !leftPressed){//If neither arrow is pressed the ball's speed will decrease until rest
+				if (Math.abs(dx) < decelerationX){
+					dx = 0;
+				}//i.e. stops the ball from just going backwards indefinitely
+				else if (dx > 0 && leftWall == false){	
+					dx -= decelerationX;
+					for (i = 0; i<platform.length; i++){
+						var p = platform[i];
+						p.platformX -= dx;
+					}
+					backgroundX -= dx;
+				}
+				else if (dx < 0 && rightWall == false){
+					dx += decelerationX;
+					for (i = 0; i<platform.length; i++){
+						var p = platform[i];
+						p.platformX -= dx;
+					}
+					backgroundX -= dx;
+				}
+			}
+		}
+		
+		else{//... otherwise the ball will move and the screen will stay still
+			if(rightPressed && leftWall == false){
+				characterCounter --;
+				if (dx + accelerationX <= maxdx){
+					dx += accelerationX;
+				}
+				x += dx;
+			}
+			
+			else if(leftPressed && rightWall == false){
+			characterCounter --;
+			if (dx + accelerationX >= -maxdx){
+					dx -= accelerationX;
+				}
+				x += dx
+			}
+			
+			else if (!rightPressed && !leftPressed){
+				if (Math.abs(dx) < decelerationX){
+					dx = 0;
+				}
+				else if (dx > 0 && leftWall == false){
+					dx -= decelerationX;
+					x += dx;
+				}
+				else if (dx < 0 && rightWall == false){
+					dx += decelerationX;
+					x += dx;
+				}
+			}
+		}
+	}
+	
+	function jump(){//this function controls the jump
+		if (spacePressed){
+			for (i = 0; i<platform.length; i++){
+				var p = platform[i];
+				if (platformSwitch == p) {
+					dy = initialdy;
+					platformSwitch = false;
+					jumpStop = false;
+				}
+			}
+			if (!jumpStop && dy < 0){
+				dy -= jumpExtend;
+				y += dy;
+			}
+		}
+		//if space is pressed and it's on a platform:
+		//(1) the ball's jump speed is reset to initialdy
+		//(2) the platformSwitch is turned off to indicate that the ball is no longer on a platform
+		//(3) jumpStop is turned off (until space is unpressed)
+		//While jumpStop is off and the ball is heading up the ball will continue to add jumpExtend to its speed
+		//N.B. The 'ball is heading up' condition is designed to stop the ball from adding dy to its speed while falling
+	}
+	
+	function gravity(){//this function makes the ball or character accelerate downwards when the platformSwitch is off
+		if (!platformSwitch){
+			dy += accelerationY;
+			y += dy;
+		}
+		
+	}	
+	
+	function screenScroll(){//this function allows you to scroll forwards and backwards through the screen using the 'a' and 'd' keys
+		if (aPressed && ground.platformX + screenScrollSpeed < 0){//if a is pressed the screen scrolls left, provided that won't make ground.platformX positive
+			x += screenScrollSpeed;
+			everythingElseMovesHorizontally(screenScrollSpeed);
+		}
+		else if (aPressed && ground.platformX + screenScrollSpeed > 0){
+		//this is to stop the screen from jolting constantly if it's scrolling left and it hits ground.platformX
+			var temporaryX = ground.platformX;
+			x -= temporaryX;
+			everythingElseMovesHorizontally(-temporaryX);
+		}
+		else if (dPressed){//if d is pressed the screen scrolls right
+			x -= screenScrollSpeed;
+			everythingElseMovesHorizontally(-screenScrollSpeed);
+		}
+		else if (wPressed){
+			y += screenScrollSpeed;
+			everythingElseMovesVertically(screenScrollSpeed);
+		}
+		else if (sPressed && ground.platformY + ground.platformHeight > canvas.height){
+			y -= screenScrollSpeed;
+			everythingElseMovesVertically(-screenScrollSpeed);
+		}
+	}
+	
+	function screenReadjust(){//this function adjusts the screen to centre the ball or zero ground.platformX, depending on which is appropriate, so long as 'a' and 'd' aren't pressed
+		if(!aPressed && !dPressed){
+			if (x < canvas.width/2 - characterWidth/2 && x > ground.platformX + canvas.width/2 - characterWidth/2){
+			//If the ball is ever to the left of the centre-point, and it isn't between ground.platformX and the midpoint, the screen will readjust to centre itself
+				var temporaryX = x;
+				x -= (temporaryX - canvas.width/2 + characterWidth/2)/10;
+				everythingElseMovesHorizontally(-(temporaryX - canvas.width/2 + characterWidth/2)/10);
+			}
+			
+			else if (x > canvas.width/2 - characterWidth/2){
+			//If the ball is ever to the right of the centre-point,the screen will readjust to centre itself
+				var temporaryX2 = x
+				x += (canvas.width/2 - characterWidth/2 - temporaryX2)/10;
+				everythingElseMovesHorizontally((canvas.width/2 - characterWidth/2 - temporaryX2)/10)
+			}
+			
+			else if (x < ground.platformX + canvas.width/2 - characterWidth/2){
+			//If the ball is ever less than half the canvas width away from ground.platformX, the screen will readjust to put ground.platformX at zero
+				var temporaryX3 = ground.platformX
+				x -= temporaryX3/10;
+				everythingElseMovesHorizontally(-temporaryX3/10);
+			}
+		}
+	}
+	/*NOTE: this function serves two purposes:
+		(1) it will readjust the screen appropriately after the 'a' and 'd' keys have been pressed (the obvious purpose)
+		(2) it will readjust the screen appropriately if the ball EVER becomes uncentred when it's supposed to be centred ...
+		 ... and similarly if ground.platformX is EVER unzeroed, if it's supposed to be zeroed ...
+		 ... this should mean that I can now just get a bit of code to make x move ...
+		 ... and the screenScroll function will ensure that actually the platforms move around x if necessary :)
+	*/
+	
+	
+	// collision detection functions
+	function platformCollisionDetector(){//this function detects when the ball or character lands on a platform
+		for (i = 0; i<platform.length; i++){
+			var p = platform[i];
+			if (platformSwitch == p && x >= p.platformX - characterWidth/2 && x <= p.platformX + p.platformWidth - characterWidth/2){
+				if (x >= canvas.width/2 - characterWidth/2 && x >= ground.platformX + canvas.width/2 - characterWidth/2){
+					everythingElseMovesHorizontally(-p.xSpeed);
+				}
+					/*NOTE: this bit above isn't exactly necessary because the second half of the screenScroll function ... 
+					... should ensure that the screen moves instead of the ball if the ball is centred ...
+					... HOWEVER, it's a lot smoother to make it move like this, as otherwise there's a slight delay... 
+					... while the screen tries to catch up with the ball.
+					*/
+				else{
+					x += p.xSpeed;
+				}
+				y += p.ySpeed;
+			}
+			else if (platformSwitch == p){
+				if(x < p.platformX - characterWidth/2){
+					platformSwitch = false;
+				}
+				else if(x > p.platformX + p.platformWidth - characterWidth/2){
+					platformSwitch = false;
+				}
+			}
+			else if (y + dy + accelerationY + characterHeight >= p.platformY + p.ySpeed && y + characterHeight <= p.platformY && x >= p.platformX-characterWidth/2 && x <= p.platformX + p.platformWidth - characterWidth/2){
+				y=p.platformY-characterHeight;
+				dy = 0;//this seems to help make the ball's fall off the platform smoother
+				platformSwitch = p;
+			}
+		}
+	}
+		/*If the platformSwitch is switched to a platform p, and the ball IS on p, then it's x- and y-coordinate will move with p's
+		If platformSwitch is switched to p and the ball ISN'T on p, then it will be switched off
+		If the ball's motion (complete with the added speed from gravity) will take it below a platform p ...
+		...and it's currently above p, and its x-coordinate falls within p's, then:
+			(1) it will land on p
+			(2) dy gets set to zero
+			(3) the platformSwitch will switch to p
+		*/
+	
+	function secondPlatformCollisionDetector(){//this function detects when the ball or character collides with the bottom or sides of a solid platform
+		for (i = 0; i<platform.length; i++){
+			var p = platform[i];
+			if (p.solidWall){
+				if (x + characterWidth + dx >= p.platformX + p.xSpeed && x + characterWidth <= p.platformX && y + characterHeight + dy > p.platformY && y + dy < p.platformY+ p.platformHeight){
+					x = p.platformX - characterWidth;
+					dx = 0;
+					leftWall = p;
+				}
+				if (leftWall == p){
+					if (p.xSpeed < 0){
+						x += p.xSpeed;
+					}
+					if (x + characterWidth < p.platformX || y + characterHeight <= p.platformY || y + dy >= p.platformY+ p.platformHeight){
+						leftWall = false;
+					}
+				}
+				
+				if (x + dx <= p.platformX + p.platformWidth + p.xSpeed && x >= p.platformX + p.platformWidth && y + dy + characterHeight > p.platformY && y + dy < p.platformY+ p.platformHeight){
+					x = p.platformX + p.platformWidth;
+					dx = 0;
+					rightWall = p;
+				}
+				if (rightWall == p){
+					if (p.xSpeed > 0){
+						x += p.xSpeed;
+					}
+					if (x > p.platformX + p.platformWidth || y + characterHeight <= p.platformY || y + dy >= p.platformY+ p.platformHeight){
+						rightWall = false;
+					}
+				}
+				
+				if (y > p.platformY + p.platformHeight && x + characterWidth/2 >= p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth){
+					addNew(underPlatform, p);
+				}
+				for (j = 0; j<underPlatform.length; j++){
+					var q = underPlatform[j];
+					if (p == q){
+						test();
+						if (y <= p.platformY + p.platformHeight && x + characterWidth/2 >= p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth){
+							y = p.platformY + p.platformHeight;
+							dy = 0;
+							jumpStop = true;
+							remove(underPlatform,p); //stops the ball travelling down with a solid lift
+						}
+						else if (x + characterWidth/2 < p.platformX || x + characterWidth/2 > p.platformX + p.platformWidth){
+							remove(underPlatform,p)
+						}
+					}
+				}
+			}
+		}
+	}
+	/*For solid platforms, p:
+		If the ball is currently to the left of p but its horizontal motion will take it through p then:
+			(1) leftWall switches to p
+			(2) dx = 0
+			(3) x switches to just to the left of p
+		If leftWall is switched to p:
+			(1) if the platform is travelling left, x travels with the speed of p
+			(2) leftWall switches off
+		Similarly for rightWall
+		If the ball ever goes under p:
+			p is added to the underPlatform array (provided it's not already in there)
+		If p is in the underPlatform array:
+			then if the ball is stil under p:
+				(1) y is placed directly under
+				(2) dy = 0
+				(3) jumpStop is switched on
+				(4) p is instantaneously removed from underPlatform to stop the ball travelling down with p if p is a downwards-moving lift 
+			or if the ball is not still under p, then p is removed from underPlatform
+	*/
+	
+	function insideSolid(){//this function will move the ball backwards / forwards if it's ever partially inside a solid platform
+		for (i = 0; i<platform.length; i++){
+			var p = platform[i];
+			if (p.solidWall && underPlatform == false && platformSwitch !== p){
+//the dy >= 0 criterion is designed to ensure that if the ball is currently UNDER p it won't be knocked sideways by insideSolid
+//the platformSwitch !== p criterion is to ensure the same thing for it the ball is currently ON p
+				if (x + characterWidth > p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth/2 && y + characterHeight > p.platformY && y < p.platformY+ p.platformHeight){
+					x -=2;
+					x += p.xSpeed;
+					if (dx > 0){
+						dx = -dx;
+					}
+				}
+				if (x < p.platformX + p.platformWidth && x + characterWidth/2 > p.platformX + p.platformWidth/2 && y + characterHeight > p.platformY && y < p.platformY+ p.platformHeight){
+					x +=2;
+					x += p.xSpeed;
+					if (dx < 0){
+						dx = -dx;
+					}
+				}
+			}
+		}
+	}
+	/*this is the most buggy function and the most messy one as well - I am planning to change it soon but at the moment it sort of works
+		so I'm not going to change it for the mo
+	*/
+	
+	
+	
+	function game() {//this function has all the information for the game
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	drawPlatform();
+	drawBall();
+	
+	if (paused){
+		writePaused();
+	}
+	if (!paused){
+		wallBounce();
+		liftMove();
+		horizontalMovement();
+		jump();
+		platformCollisionDetector();
+		secondPlatformCollisionDetector();
+		gravity();
+		insideSolid();
+	}
+	
+	screenScroll();
+	screenReadjust();
+	
+	requestAnimationFrame(game);
+	}
+	
+	game();
+	
+	
+</script>
+
+</body>
+</html>

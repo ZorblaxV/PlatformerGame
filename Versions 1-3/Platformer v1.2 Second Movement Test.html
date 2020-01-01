@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Second Movement Test</title>
+    <style>
+    	* { padding: 0; margin: 0; }
+    	canvas { background: #eee; display: block; margin: 0 auto; }
+    </style>
+</head>
+
+<body>
+
+<canvas id="myCanvas" width="1090" height="350"></canvas>
+
+<script>// JavaScript code goes here
+	
+	var canvas = document.getElementById("myCanvas");
+	var ctx = canvas.getContext("2d");
+	
+	function test() {
+	//This function can be used to test where the mistake in the code might be (note, because the game function clears the canvas, as long as the game function is working, the test should be put into the game function)
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("TESTING", canvas.width/10, canvas.height/2); 
+	}
+	
+	function measureHeight() {
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "black";
+		ctx.textAlign = "center";
+		ctx.fillText("3", canvas.width/2, canvas.height/4);
+		ctx.fillText("2", canvas.width/2, canvas.height/2);
+		ctx.fillText("1", canvas.width/2, 3*canvas.height/4);
+	}
+	
+	var platformWidth = canvas.width
+	var platformHeight = 50
+	
+	var ballRadius = 20;
+	var x = ballRadius;
+	var y = canvas.height-platformHeight-ballRadius;
+	
+	
+	var maxdx = 15;
+	var dx = 0;
+	var initialdy = -8;
+	var dy = initialdy;
+	var accelerationX = 0.5; //this is the rate at which the ball accelerates if you press the arrow keys
+	var decelerationX = 0.2; //this is the rate at which the ball decelerates if you unpress the arrow keys
+	var accelerationY = 0.5; //this is the rate at which the ball accelerates towards the ground if it's in the air
+	
+	var jumpSwitch = 1;
+	var jumpExtend = 0.2;
+	
+	var rightPressed = false;
+	var leftPressed = false;
+	var spacePressed = false;
+	
+	document.addEventListener("keydown", keyDownHandler, false);
+	document.addEventListener("keyup", keyUpHandler, false);	
+	
+	function keyDownHandler(e) {//this function takes the event of a key going down (labelled 'e') as its input and sets the variable rightPressed to true
+		if(e.keyCode == 39) {//39 is the key code for the right arrow key
+			rightPressed = true;
+		}
+		else if(e.keyCode == 37) {//37 is the key code for the left arrow key
+			leftPressed = true;
+		}
+		else if(e.keyCode == 32) {//32 is the key code for the space bar
+			spacePressed = true;
+		}
+	}
+	
+	function keyUpHandler(e) {//this function takes the event of a key going up (labelled 'e') as its input and sets the variable rightPressed to false
+		if(e.keyCode == 39) {
+			rightPressed = false;
+		}
+		else if(e.keyCode == 37) {
+			leftPressed = false;
+		}
+		else if(e.keyCode == 32) {//32 is the key code for the space bar
+			spacePressed = false;
+			jumpSwitch = 0;
+		}
+	}
+	
+	function drawPlatform() {
+		//This function draws the platform
+		ctx.beginPath();
+		ctx.rect(0, canvas.height-platformHeight, platformWidth, platformHeight);
+		ctx.fillStyle = "BLACK"
+		ctx.fill();
+		ctx.closePath();
+	}
+	
+	function drawBall() {
+    // this function draws the ball
+		ctx.beginPath();
+		ctx.arc(x, y, ballRadius, 0, Math.PI*2);//arc(x-coordinate of centre, y-coordinate of centre, radius, angle start, angle stop)
+		ctx.fillStyle = "RED"
+		ctx.fill();
+		ctx.closePath();
+	}
+	
+	function game() {
+	ctx.clearRect(0, 0, canvas.width, canvas.height); //clears the canvas of everything on it - clearrect(top-left-corner-coordinates, width, height)
+	drawPlatform();
+	drawBall();
+	test();
+	measureHeight();
+		if (x >= canvas.width-ballRadius||x <= ballRadius){
+			dx = -dx;
+			if (dy > 0){
+				dy = -dy;
+			}
+		}
+		//if the ball ever hits the edge of the screen it will bounce back at the same speed
+		if (x <= 0){
+			x ++;
+		}
+		if (x >= canvas.width){
+			x --;
+		}
+		//failsafes
+		
+		if(rightPressed && x < canvas.width && x > 0){
+			if (dx + accelerationX <= maxdx){
+				dx += accelerationX;
+			}
+			x += dx;
+		}
+	// if the ball is on the screen and the right arrow is pressed it will accelerate to a maximum velocity of maxdx and then keep going right 
+		
+		else if(leftPressed && x < canvas.width && x > 0){
+			if (dx + accelerationX >= -maxdx){
+				dx -= accelerationX;
+			}
+			x += dx
+		}
+	// if the ball is on the screen and the left arrow is pressed it will decelerate to a minimum velocity of -maxdx and then keep going left
+		
+		else if (!rightPressed || !leftPressed){
+			if (x + dx < canvas.width-ballRadius && x + dx >ballRadius){
+				if (Math.abs(dx) < decelerationX){
+					dx = 0;
+				}
+				//i.e. stops the ball from just going backwards indefinitely
+				else if (dx > 0){
+					dx -= decelerationX;
+					x += dx;
+				}
+				else if (dx < 0){
+					dx += decelerationX;
+					x += dx;
+				}
+			}
+		}
+		//If neither arrow is pressed the ball's speed will decrease until rest, though it will never go off the screen
+		
+		if (spacePressed){
+			if (y >= canvas.height-platformHeight-ballRadius) {
+				dy = initialdy;
+				jumpSwitch = 1;
+			}
+			if (jumpSwitch == 1){
+				dy -= jumpExtend
+				y += dy;
+			}
+		}
+		//if space is pressed and its on the ground the ball's jump speed is reset to initial dy and its jumpCounter is restarted
+		
+		if (y < canvas.height-platformHeight-ballRadius){
+			if(y + dy < canvas.height-platformHeight-ballRadius){
+				y += dy;
+				dy += accelerationY;
+			}
+			if (y + dy >= canvas.height-platformHeight-ballRadius){
+				y = canvas.height-platformHeight-ballRadius;
+				dy = 0;
+			}
+		}
+		//the ball accelerates towards the platform when its in the air so long as this wouldn't cause it to sink into the ground
+		// if it would, then it will just hit the ground instead
+		
+	requestAnimationFrame(game);
+	}
+	
+	game();
+	
+</script>
+
+</body>
+</html>

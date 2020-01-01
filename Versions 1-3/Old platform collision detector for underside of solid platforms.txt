@@ -1,0 +1,29 @@
+//
+	if (jumpStop){
+		if (y + dy <= p.platformY + p.platformHeight + p.ySpeed && y > p.platformY + p.platformHeight && x + characterWidth/2 >= p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth){
+			test();
+			y = p.platformY + p.platformHeight;
+			dy = 0;
+			}
+		}
+	if (!jumpStop){
+		if (y + dy - jumpExtend <= p.platformY + p.platformHeight + p.ySpeed && y > p.platformY + p.platformHeight && x + characterWidth/2 >= p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth){
+			test();
+			y = p.platformY + p.platformHeight;
+			dy = 0;
+			jumpStop = true;
+		}
+	}
+	if (y > p.platformY + p.platformHeight && x + characterWidth/2 >= p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth){
+		underPlatform = p;
+	}
+	if (underPlatform == p){
+		test();
+		if (y <= p.platformY + p.platformHeight && x + characterWidth/2 >= p.platformX && x + characterWidth/2 <= p.platformX + p.platformWidth){
+			y = p.platformY + p.platformHeight;
+			dy = 0;
+		}
+		else if (x + characterWidth/2 < p.platformX || x + characterWidth/2 > p.platformX + p.platformWidth){
+			underPlatform = false;
+		}
+	}

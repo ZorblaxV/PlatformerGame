@@ -1,0 +1,17 @@
+	for (i = 0; i<platform.length; i++){
+			var p = platform[i];
+			if (dy > 0 && y + dy >= p.platformY-ballRadius && y<= p.platformY + p.platformHeight && x >= p.platformX && x <= p.platformX + p.platformWidth){
+				dy = 0;
+				y = p.platformY-ballRadius;
+			}
+			else if (y < canvas.height-ground.platformHeight-ballRadius){
+				if(y + dy < canvas.height-ground.platformHeight-ballRadius){
+					y += dy;
+					dy += accelerationY;
+				}
+				if (y + dy >= canvas.height-ground.platformHeight-ballRadius){
+					y = canvas.height-ground.platformHeight-ballRadius;
+					dy = 0;
+				}
+			}
+		}
